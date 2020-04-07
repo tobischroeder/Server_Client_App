@@ -22,7 +22,7 @@ int clientCounter{0};
 std::mutex client_handler_mutex;
 std::condition_variable con_var;
 std::vector<Resource*> resources = {new Resource("document1"), new Resource("document2"), new Resource("document3")};
-ResourceManager* resource_manager = new ResourceManager(std::move(resources));
+std::unique_ptr<ResourceManager> resource_manager (new ResourceManager(std::move(resources)));
 
 //global variable client counter is incremented whenever the server has accepted a new client connection
 void incrementClientCounter()
