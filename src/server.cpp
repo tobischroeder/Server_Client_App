@@ -9,14 +9,34 @@
 #include <thread>
 #include <vector>
 #include <memory>
+#include <map>
+#include <algorithm>
+#include <condition_variable>
+#include <chrono>
+#include "resource.hpp"
+#include "resource_manager.hpp"
+
+class Resource;
+class ResourceManager;
 
 int clientCounter{0};
+std::mutex client_handler_mutex;
+std::condition_variable con_var;
+std::vector<Resource*> resources = {new Resource("doc1"), new Resource("doc2"), new Resource("doc3")};
+ResourceManager* resource_manager = new ResourceManager(std::move(resources));
+void incrementClientCounter()
+{
+    //std::lock_guard<std::mutex> client_handler_lock(client_handler_mutex);
+    clientCounter += 1;
+    std::cout << "Started client handler for client " << clientCounter << std::endl;
+
+}
+
 
 void clientHandler(sockaddr_in&& client, int&& clientSocket)
 {
-    clientCounter ++;
+    clientCounter += 1;
     std::cout << "Started client handler for client " << clientCounter << std::endl;
-
     char host[NI_MAXHOST];
     char service[NI_MAXSERV];
 
@@ -35,15 +55,19 @@ void clientHandler(sockaddr_in&& client, int&& clientSocket)
     }
 
     char buf[4096];
-
+    
     while(true)
     {
         memset(buf, 0, 4096);
-
+        std::cout << "entered while" << std::endl;
+        std::string askClient = "Hello Client " + std::to_string(clientCounter) + " which resource would you like to get allocated?\r\n";
+        std::string resourceOverview = resource_manager->getResourceOverview();
+        send(clientSocket, (askClient + resourceOverview).c_str(), (askClient + resourceOverview).size() + 1, 0);
+        
         int bytesReceived = recv(clientSocket, buf, 4096, 0);
         if(bytesReceived == -1)
         {
-            std::cerr << "Error in recv() Quitting!" << std::endl;
+            std::cout << "Error in recv() Quitting!" << std::endl;
             break;
 
         }
@@ -54,26 +78,107 @@ void clientHandler(sockaddr_in&& client, int&& clientSocket)
             break;
         }
 
-        std::cout << std::string(buf, 0, bytesReceived) << std::endl;
 
-        send(clientSocket, buf, bytesReceived + 1, 0);
+        std::string clientInput = std::string(buf, bytesReceived);
 
+        bool resource_found = false;
+        bool successfull_locked = false;
+
+        std::string response;
+        clientInput.erase(std::find(clientInput.begin(), clientInput.end(), '\0'), clientInput.end());
+
+        for(auto &resource : resource_manager->getResources())
+        {
+            if((*resource).getName() == clientInput && !resource_found)
+            {
+                resource_found = true;
+
+                if((*resource).getAvailability() == "locked")
+                {
+                    response = "Resource is currently not available!\r\n\n";
+                    
+                }
+
+                else
+                {
+                    (*resource).toggleAvailability();
+                    successfull_locked = true;
+                    response = "Resource " +  (*resource).getName() + " allocated. Please type unlock to give back ownership\r\n";
+                } 
+            }
+
+
+        }
+
+        if(!resource_found)
+        {
+            response =  "The requested resource is not available.\r\n";
+        }
+
+
+        send(clientSocket, response.c_str(), response.size() + 1, 0);
+
+        if(successfull_locked)
+        {
+            bytesReceived = recv(clientSocket, buf, 4096, 0);
+
+            if(bytesReceived == -1)
+            {
+                std::cout << "Error in recv() Quitting!" << std::endl;
+                break;
+
+            }
+
+            if(bytesReceived == 0)
+            {
+                std::cout << "Client disconnected" << std::endl;
+                break;
+            }
+
+
+            std::string unlock = std::string(buf, bytesReceived);
+            unlock.erase(std::find(unlock.begin(), unlock.end(), '\0'), unlock.end());
+
+            bool unlock_success = false;
+
+            if(unlock == "unlock")
+            {
+                for(auto &resource : resource_manager->getResources())
+                {
+                    if( (*resource).getName() == clientInput)
+                    {
+                        (*resource).toggleAvailability();
+                        unlock_success = true;
+                        std::cout << "Resource " <<  (*resource).getName() << " deallocated" << std::endl; 
+                    }
+
+
+                }
+
+                if(!unlock_success)
+                {
+                    std::cout << "Error: Unlock not possible." << std::endl;
+                }
+
+            }
+        }
+
+        else
+        {
+            continue;
+        }
+        
     }
-
-
-
 }
 
-// TODO define vector of resources which have be locked during modification
 int main()
 {
-    
     std::vector<std::thread> client_threads;
-
+    
     int listening = socket(AF_INET, SOCK_STREAM, 0);
     if(listening == -1)
     {
-        std::cerr << "Can not create socket";
+        std::cout << "Can not create socket";
         return -1;
     }
 
@@ -100,10 +205,6 @@ int main()
         {
             thread.join();
         }
-   
-    
-
-    //close(clientSocket);
 
     return 0;
     

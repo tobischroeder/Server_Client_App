@@ -7,7 +7,7 @@
 #include <string>
 #include <string.h>
 
-using namespace std;
+
 
 int main()
 {
@@ -19,7 +19,7 @@ int main()
     }
 
     int port = 54000;
-    string ipAdress = "127.0.0.1";
+    std::string ipAdress = "127.0.0.1";
     sockaddr_in hint;
 
     hint.sin_family = AF_INET;
@@ -34,32 +34,42 @@ int main()
     }
 
     char buf[4096];
-    string userInput;
+    std::string userInput;
 
     do
     {
-        cout << "> ";
-        getline(cin, userInput);
-
-        int sendRes = send(sock, userInput.c_str(), userInput.size() + 1, 0);
-        
-        if(sendRes == -1)
-        {
-            cout << "Could not send to server \r\n ";
-            continue;
-        }
         memset(buf, 0, 4096);
         int bytesReceived = recv(sock, buf, 4096, 0);
         if(bytesReceived == -1)
         {
-            cout << "There was an error getting the response from server \r\n";
-
+            std::cout << "There was an error getting the response from server \r\n";
         }
 
-        else
+        std::cout << std::string(buf, bytesReceived) << std::endl;
+        std::cout << "> ";
+        std::getline(std::cin, userInput);
+
+        int sendRes = send(sock, userInput.c_str(), userInput.size() + 1, 0);
+
+        if(sendRes == -1)
         {
-            cout << "SERVER> " << string(buf, bytesReceived) << endl;
+            std::cout << "Could not send to server \r\n ";
+            continue;
         }
+
+        bytesReceived = recv(sock, buf, 4096, 0);
+        std::cout << std::string(buf, bytesReceived) << std::endl;
+        std::cout << "> ";
+        std::getline(std::cin, userInput);
+        
+        sendRes = send(sock, userInput.c_str(), userInput.size() + 1, 0);
+
+        if(sendRes == -1)
+        {
+            std::cout << "Could not send to server \r\n ";
+            continue;
+        }
+        
         
     } while (true);
 
