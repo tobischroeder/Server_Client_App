@@ -1,3 +1,6 @@
+/*
+    Header File for the class Resource
+*/
 #ifndef RESOURCE_H
 #define RESOURCE_H
 

@@ -1,3 +1,8 @@
+/*
+    This file holds the implementation of the class Resource. Objects of this class represent for example a document which can only be controlled by one client-thread at any time.
+    It holds a name, a view counter and the availibility information
+*/
+
 #include "resource.hpp"
 #include<iostream>
 
@@ -29,7 +34,6 @@ std::string Resource::getAvailability() const
 
 void Resource::incrementViews() 
 {
-    //std::lock_guard<std::mutex> lock(_resource_mutex);
     _views += 1;
 }
 
@@ -40,25 +44,24 @@ std::string Resource::getName() const
 
 void Resource::setName(std::string name)
 {
-    //std::lock_guard<std::mutex> lock(_resource_mutex);
     _name = name;
 }
 
 void Resource::toggleAvailability()
 {
-    //std::lock_guard<std::mutex> lock(_resource_mutex);
+    std::lock_guard<std::mutex> lock(_resource_mutex);
 
     if(_availability == Availability::unlocked)
     {
         _availability = Availability::locked;
         incrementViews();
-        std::cout << "Resource " << _name << " was locked.";
+        std::cout << "Resource " << _name << " was locked.\r\n";
     }
 
     else if(_availability == Availability::locked)
     {
         _availability = Availability::unlocked;
-        std::cout << "Resource " << _name << " was unlocked.";
+        std::cout << "Resource " << _name << " was unlocked.\r\n";
     }
 
     else

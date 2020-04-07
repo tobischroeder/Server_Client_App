@@ -1,3 +1,6 @@
+/*
+    This file holds the implementation of the class RessourceManager. Objects of this class own a vector of Resource Objects and helper methods to keep track of the available resources and their status.
+*/
 #include <iostream>
 #include "resource.hpp"
 #include "resource_manager.hpp"
